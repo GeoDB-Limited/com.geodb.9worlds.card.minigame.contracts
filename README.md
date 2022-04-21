@@ -1,0 +1,1 @@
+# com.geodb.9worlds.card.minigame.contracts
