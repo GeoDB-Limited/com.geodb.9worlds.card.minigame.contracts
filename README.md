@@ -1,1 +1,1 @@
-# com.geodb.9worlds.card.minigame.contracts
+com.geodb.eth.contracts.template
