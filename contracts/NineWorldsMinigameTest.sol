@@ -6,7 +6,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/Counters.sol";
 import "./interfaces/IVikings.sol";
 
-contract NineWorldsMinigame is Ownable, VRFConsumerBase {
+contract NineWorldsMinigameTest is Ownable, VRFConsumerBase {
     using Counters for Counters.Counter;
     
     enum NftType {
@@ -59,10 +59,10 @@ contract NineWorldsMinigame is Ownable, VRFConsumerBase {
 
     IVikings public vikingsContract;
 
-    bytes32 internal keyHash = 0xf86195cf7690c55907b2b611ebb7343a6f649bff128701cc542f0569e2c549da;
-    uint256 internal feeLink = 1e14; // 0.0001 LINK POLYGON MATIC
     //bytes32 internal keyHash = 0x2ed0feb3e7fd2022120aa84fab1945545a9f2ffc9076fd6156fa96eaff4c1311;
     //uint256 internal feeLink = 100000000000000000; // 0.0001 LINK RINKEBY MATIC
+    bytes32 internal keyHash = 0xf86195cf7690c55907b2b611ebb7343a6f649bff128701cc542f0569e2c549da;
+    uint256 internal feeLink = 1e14; // 0.0001 LINK POLYGON MATIC
 
     event RequestValues(bytes32 requestId);
     event RandomnessEvent(bytes32 requestId);
@@ -71,9 +71,9 @@ contract NineWorldsMinigame is Ownable, VRFConsumerBase {
     event MatchInitialized(uint256 matchId, address initializerUser);
     event MatchResolved(uint256 matchId);
 
-    constructor(IVikings _vikingsContract, uint256 _maxMatchesPerDay, uint256 _maxNftMatchCount)
+    constructor(IVikings _vikingsContract, uint256 _maxMatchesPerDay, uint256 _maxNftMatchCount, address _vrfCoordinatorAddress)
     //VRFConsumerBase(0x3d2341ADb2D31f1c5530cDC622016af293177AE0, 0xb0897686c545045aFc77CF20eC7A532E3120E0F1){
-    VRFConsumerBase(0x3d2341ADb2D31f1c5530cDC622016af293177AE0, 0xb0897686c545045aFc77CF20eC7A532E3120E0F1) {
+    VRFConsumerBase(_vrfCoordinatorAddress, 0xb0897686c545045aFc77CF20eC7A532E3120E0F1) {
         vikingsContract = _vikingsContract;
         maxMatchesPerDay = _maxMatchesPerDay;
         maxNftMatchCount = _maxNftMatchCount;
@@ -228,7 +228,7 @@ contract NineWorldsMinigame is Ownable, VRFConsumerBase {
             }
         } else {
 
-        }
+        }        
         matchesById[matchId].isMatchFinished = true;
         emit MatchResolved(matchId);
     }
