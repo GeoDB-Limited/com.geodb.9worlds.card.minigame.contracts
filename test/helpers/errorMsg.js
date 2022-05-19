@@ -8,6 +8,9 @@ module.exports = {
     randomNumber: "NineWorldsMinigame: RandomNumber not available yet",
     rerroll: "Rerroll not available",
     linkFounds: "NineWorldsMinigame: Not enough LINK, fill contract with LINK",
+    notInitializedMatch: "NineWorldsMinigame: Match is not created or initialized",
     initializedMatch: "NineWorldsMinigame: Match is already initialized",
-    matchFinished: "NineWorldsMinigame: Match is finished"
+    matchFinished: "NineWorldsMinigame: Match is finished",
+    reorder: "NineWorldsMinigame: Reorder not available: player power is less than computer power",
+    pendingMatch: "NineWorldsMinigame: Pending match"
 };

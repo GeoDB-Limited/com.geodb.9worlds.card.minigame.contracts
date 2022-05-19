@@ -10,7 +10,7 @@ const { MAX_MATCHES_PER_NFT, MAX_NFTS_PER_MATCH, LENDING_POOL, AM_STAKE_TOKEN, Z
     TOTAL_SUPLIES, INITIAL_INDEXES, STRENGTHS, PRICES, BASE_URIS, STAKE_TOKEN, ONE_USD, TEN_USD, MAX_BOATS_SUPPLY } = constant;
 require("chai").should();
 
-contract("NineWorldsMulti", ([owner, user, user2, ...accounts]) => {
+contract("NineWorldsMulti", ([owner, user, user2, user3, ...accounts]) => {
     const BOAT_ID = 0;
     const VIKING_ID = 0;
     const INVALID_BOAT_ID = new BN("10");
@@ -120,6 +120,9 @@ contract("NineWorldsMulti", ([owner, user, user2, ...accounts]) => {
             for(let i = 0; i < 2; i++) { 
                 await vikingsContract.mintByType(user2, 0, {from: owner});
             }
+            for(let i = 0; i < 2; i++) { 
+                await vikingsContract.mintByType(user3, 0, {from: owner});
+            }
         })
         describe("Match tests", () => {
             /*it("Should allow create new match", async () =>{
@@ -186,7 +189,8 @@ contract("NineWorldsMulti", ([owner, user, user2, ...accounts]) => {
             const receiptObjCall = await vrfCoordinatorMock.callBackWithRandomness(requestId, randomValue, minigameContract.address);
             await expectEvent.inTransaction(receiptObjCall["receipt"]["transactionHash"], minigameContract, "RandomnessEvent", { requestId: requestId });
         })
-        describe("Resolve match test", () => {
+        /*
+        describe("Initialize match test", () => {
             it("Should allow resolve match with user", async () =>{
                 const dailyMatch = new BN("1");
                 const matchId = new BN("1");
@@ -220,6 +224,27 @@ contract("NineWorldsMulti", ([owner, user, user2, ...accounts]) => {
                 );
             });
 
+            it("Should deny resolve match with user if match is finished", async () =>{
+                const dailyMatch = new BN("1");
+                const matchId = new BN("1");
+                const matchCount = 5;
+                await minigameContract.initializeMatchFor(user, { from: user} );
+
+                for(let i = 0; i < matchCount; i++) {
+                    const nftId = (await minigameContract.getValidPlayerNft(matchId, i));
+                    const nftStatusById = await minigameContract.nftStatusById(nftId);
+                    nftStatusById.dailyMatchCounter.should.be.bignumber.equal(dailyMatch);
+                    nftStatusById.currentMatchId.should.be.bignumber.equal(matchId);
+                }
+
+                await minigameContract.resolveMatch({ from: user });
+
+                await expectRevert(
+                    minigameContract.initializeMatchFor(user, { from: user} ),
+                    errorMsgs.initializedMatch
+                );
+            });
+
             it("Should deny resolve match with user2 if random number not available", async () =>{
                 const matchCount = 2;
                 const transaction = await minigameContract.createMatchAndRequestRandom(matchCount, { from: user2 });
@@ -230,6 +255,110 @@ contract("NineWorldsMulti", ([owner, user, user2, ...accounts]) => {
                 );
             });
             
-        }); 
+        }); */
+        beforeEach("Initialize match", async () => {
+            const nftPointForPlayer = new BN("10")
+            const nftPointForComputer = new BN("5");
+            await minigameContract.setNftPointForPlayerWinner(nftPointForPlayer, {from: owner});
+            await minigameContract.setNftPointForComputerWinner(nftPointForComputer, {from: owner});
+        })
+        describe("Resolve match test", () => {
+            it("Should allow resolve match with user. Player win", async () =>{
+                const nftPointForPlayer = new BN("10");
+                const nftPointForComputer = new BN("0");
+                const matchId = 2;
+                const matchCount = 2;
+                const transaction = await minigameContract.createMatchAndRequestRandom(matchCount, { from: user3 });
+                const requestEvent = expectEvent(transaction, "RequestValues", {});
+                const requestId = requestEvent.args.requestId;
+                const randomValue = new BN("3"); // Player (14 Shield, 13 Shield) Computer (15 Shield, 3 Sword) NFT Player win
+                const receiptObjCall = await vrfCoordinatorMock.callBackWithRandomness(requestId, randomValue, minigameContract.address);
+                await expectEvent.inTransaction(receiptObjCall["receipt"]["transactionHash"], minigameContract, "RandomnessEvent", { requestId: requestId });
+                await minigameContract.initializeMatchFor(user3, { from: user3 } );
+
+                await minigameContract.resolveMatch({ from: user3 });
+                for(let i = 0; i < matchCount; i++) {
+                    const nftPlayerId = (await minigameContract.getValidPlayerNft(matchId, i));
+                    const nftPlayerStatus = await minigameContract.nftStatusById(nftPlayerId);
+                    nftPlayerStatus.currentMatchId.should.be.bignumber.equal(new BN("0"));
+                    nftPlayerStatus.points.should.be.bignumber.equal(nftPointForPlayer);
+
+                    const nftComputerId = (await minigameContract.getValidComputerNft(matchId, i));
+                    const nftComputerStatus = await minigameContract.nftStatusById(nftComputerId);
+                    nftComputerStatus.points.should.be.bignumber.equal(nftPointForComputer);
+                }
+            });
+            it("Should allow resolve match with user. Tie", async () =>{
+                const nftPointForPlayer = new BN("0");
+                const nftPointForComputer = new BN("0");
+                const matchId = 2;
+                const matchCount = 2;
+                const transaction = await minigameContract.createMatchAndRequestRandom(matchCount, { from: user3 });
+                const requestEvent = expectEvent(transaction, "RequestValues", {});
+                const requestId = requestEvent.args.requestId;
+                const randomValue = new BN("5"); // Player (14 Shield, 13 Shield) Computer (15 Shield, 14 Shield) NFT Tie
+                const receiptObjCall = await vrfCoordinatorMock.callBackWithRandomness(requestId, randomValue, minigameContract.address);
+                await expectEvent.inTransaction(receiptObjCall["receipt"]["transactionHash"], minigameContract, "RandomnessEvent", { requestId: requestId });
+                await minigameContract.initializeMatchFor(user3, { from: user3 } );
+
+                await minigameContract.resolveMatch({ from: user3 });
+                for(let i = 0; i < matchCount; i++) {
+                    const nftPlayerId = (await minigameContract.getValidPlayerNft(matchId, i));
+                    const nftPlayerStatus = await minigameContract.nftStatusById(nftPlayerId);
+                    nftPlayerStatus.currentMatchId.should.be.bignumber.equal(new BN("0"));
+                    nftPlayerStatus.points.should.be.bignumber.equal(nftPointForPlayer);
+
+                    const nftComputerId = (await minigameContract.getValidComputerNft(matchId, i));
+                    const nftComputerStatus = await minigameContract.nftStatusById(nftComputerId);
+                    nftComputerStatus.points.should.be.bignumber.equal(nftPointForComputer);
+                }
+            });
+            it("Should allow resolve match with user. Computer win", async () =>{
+                const nftPointForPlayer = new BN("0");
+                const nftPointForComputer = new BN("5");
+                const matchId = 2;
+                const matchCount = 2;
+                const transaction = await minigameContract.createMatchAndRequestRandom(matchCount, { from: user3 });
+                const requestEvent = expectEvent(transaction, "RequestValues", {});
+                const requestId = requestEvent.args.requestId;
+                const randomValue = new BN("2"); // Player (14 Shield, 13 Shield) Computer (9 Axe, 7 Axe) NFT Computer win
+                const receiptObjCall = await vrfCoordinatorMock.callBackWithRandomness(requestId, randomValue, minigameContract.address);
+                await expectEvent.inTransaction(receiptObjCall["receipt"]["transactionHash"], minigameContract, "RandomnessEvent", { requestId: requestId });
+                await minigameContract.initializeMatchFor(user3, { from: user3 } );
+
+                await minigameContract.resolveMatch({ from: user3 });
+                for(let i = 0; i < matchCount; i++) {
+                    const nftPlayerId = (await minigameContract.getValidPlayerNft(matchId, i));
+                    const nftPlayerStatus = await minigameContract.nftStatusById(nftPlayerId);
+                    nftPlayerStatus.currentMatchId.should.be.bignumber.equal(new BN("0"));
+                    nftPlayerStatus.points.should.be.bignumber.equal(nftPointForPlayer);
+
+                    const nftComputerId = (await minigameContract.getValidComputerNft(matchId, i));
+                    const nftComputerStatus = await minigameContract.nftStatusById(nftComputerId);
+                    nftComputerStatus.points.should.be.bignumber.equal(nftPointForComputer);
+                }
+            });
+            /*
+            it("Should deny resolve not created match with user2", async () =>{
+                await expectRevert (
+                    minigameContract.resolveMatch({ from: user2 }),
+                    errorMsgs.notInitializedMatch
+                )
+            });
+            it("Should deny resolve not initialized match with user2", async () =>{
+                const matchCount = 2;
+                const transaction = await minigameContract.createMatchAndRequestRandom(matchCount, { from: user2 });
+                const requestEvent = expectEvent(transaction, "RequestValues", {});
+                const requestId = requestEvent.args.requestId;
+                const randomValue = utils.getRandom();
+                const receiptObjCall = await vrfCoordinatorMock.callBackWithRandomness(requestId, randomValue, minigameContract.address);
+                await expectEvent.inTransaction(receiptObjCall["receipt"]["transactionHash"], minigameContract, "RandomnessEvent", { requestId: requestId });
+
+                await expectRevert (
+                    minigameContract.resolveMatch({ from: user2 }),
+                    errorMsgs.notInitializedMatch
+                )
+            });*/
+        });
     })
 })
