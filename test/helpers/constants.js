@@ -4,6 +4,12 @@ const BASE_URI = "https://vikings-geodb.com/api/";
 
 module.exports.MAX_MATCHES_PER_NFT = 3,
 module.exports.MAX_NFTS_PER_MATCH = 5,
+module.exports.NFT_POINT_PER_PLAYER_WIN = 100,
+module.exports.NFT_POINT_PER_COMPUTER_WIN = 10,
+module.exports.NFT_POINT_PER_PLAYER_TIE = 5,
+module.exports.NFT_POINT_PER_COMPUTER_TIE = 5,
+module.exports.MAX_VALID_ID = 100,
+module.exports.MAX_NFTS_PER_MATCH = 5,
 module.exports.FEE_RECEIVER = "0x7edf00e300708489765e782e3e402f92d98cf1eb";
 module.exports.LENDING_POOL = "0x8dFf5E27EA6b7AC08EbFdf9eB090F32ee9a30fcf";
 module.exports.ZERO_BN = new BN("0");

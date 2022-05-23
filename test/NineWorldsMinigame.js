@@ -5,7 +5,8 @@ const Vikings = artifacts.require("./Vikings.sol");
 const { expectEvent, expectRevert, BN, time, constants} = require("@openzeppelin/test-helpers");
 const { toWei, isTopic } = require("web3-utils");
 const { constant, errorMsgs, utils } = require("./helpers");
-const { MAX_MATCHES_PER_NFT, MAX_NFTS_PER_MATCH, LENDING_POOL, AM_STAKE_TOKEN, ZERO_BN, AaveIncentivesController, ONE_HUNDRED_ETHER, WHALE_USER_STAKE_TOKEN, ONE_BN,
+const { MAX_MATCHES_PER_NFT, MAX_NFTS_PER_MATCH, NFT_POINT_PER_PLAYER_WIN, NFT_POINT_PER_COMPUTER_WIN, NFT_POINT_PER_PLAYER_TIE,
+    NFT_POINT_PER_COMPUTER_TIE, MAX_VALID_ID, LENDING_POOL, AM_STAKE_TOKEN, ZERO_BN, AaveIncentivesController, ONE_HUNDRED_ETHER, WHALE_USER_STAKE_TOKEN, ONE_BN,
     ONE_ETHER, MIN_PARTICIPANTS, DEADLINE, MIN_AMOUNT_STAKE, LINK, WHALE_USER_LINK, EXPONENT, MIN_PERCENTAGE,
     TOTAL_SUPLIES, INITIAL_INDEXES, STRENGTHS, PRICES, BASE_URIS, STAKE_TOKEN, ONE_USD, TEN_USD, MAX_BOATS_SUPPLY } = constant;
 require("chai").should();
@@ -24,14 +25,24 @@ contract("NineWorldsMulti", ([owner, user, user2, user3, ...accounts]) => {
 
         vikingsContract = await Vikings.new(TOTAL_SUPLIES, INITIAL_INDEXES, startTimes, endTimes, STRENGTHS, PRICES, BASE_URIS, STAKE_TOKEN, owner);
         vrfCoordinatorMock = await VRFCoordinatorMock.new(LINK, { from: owner });
-        minigameContract = await NineWorldsMinigameTest.new(vikingsContract.address, MAX_MATCHES_PER_NFT, MAX_NFTS_PER_MATCH, vrfCoordinatorMock.address);
+        minigameContract = await NineWorldsMinigameTest.new(
+            vikingsContract.address, 
+            MAX_MATCHES_PER_NFT, 
+            MAX_NFTS_PER_MATCH, 
+            NFT_POINT_PER_PLAYER_WIN,
+            NFT_POINT_PER_COMPUTER_WIN,
+            NFT_POINT_PER_PLAYER_TIE,
+            NFT_POINT_PER_COMPUTER_TIE,
+            MAX_VALID_ID,
+            vrfCoordinatorMock.address
+        );
         link = await IERC20.at(LINK);
         await link.transfer(minigameContract.address, new BN(toWei("100", "ether")), { from: WHALE_USER_LINK });
         
     });
 
     describe("Nine worlds minigame tests", () => {
-        /* describe("Setters tests", () => {
+        describe("Setters tests", () => {
             it("Allow Set nft points for player with owner", async () =>{
                 const nftPointForPlayer = new BN('10');
                 await minigameContract.setNftPointForPlayerWinner(nftPointForPlayer, {from: owner});
@@ -84,6 +95,45 @@ contract("NineWorldsMulti", ([owner, user, user2, user3, ...accounts]) => {
                     errorMsgs.onlyOwner
                 );
             });
+            it("Set nft points for player tie", async() => {
+                const nftPointForPlayerTie = new BN('10');
+                await minigameContract.setNftPointForPlayerTie(nftPointForPlayerTie, {from: owner});
+                let result = await minigameContract.nftPointForPlayerTie();
+                result.should.be.bignumber.equal(nftPointForPlayerTie)
+            });
+            it("Deny nft points for player tie with user", async () =>{
+                const nftPointForPlayerTie = new BN('10');
+                await expectRevert(
+                    minigameContract.setNftPointForPlayerTie(nftPointForPlayerTie, {from: owner}),
+                    errorMsgs.onlyOwner
+                );
+            });
+            it("Set nft points for computer tie", async() => {
+                const nftPointForComputerTie = new BN('10');
+                await minigameContract.setNftPointForComputerTie(nftPointForComputerTie, {from: owner});
+                let result = await minigameContract.nftPointForComputerTie();
+                result.should.be.bignumber.equal(nftPointForComputerTie)
+            });
+            it("Deny nft points for computer tie with user", async () =>{
+                const nftPointForComputerTie = new BN('10');
+                await expectRevert(
+                    minigameContract.setNftPointForComputerTie(nftPointForComputerTie, {from: owner}),
+                    errorMsgs.onlyOwner
+                );
+            });
+            it("Set max valid id", async() => {
+                const maxValidId = new BN('100');
+                await minigameContract.setMaxValidId(maxValidId, {from: owner});
+                let result = await minigameContract.maxValidId();
+                result.should.be.bignumber.equal(maxValidId)
+            });
+            it("Deny set max valid id with user", async () =>{
+                const maxValidId = new BN('100');
+                await expectRevert(
+                    minigameContract.setMaxValidId(maxValidId, {from: owner}),
+                    errorMsgs.onlyOwner
+                );
+            });
             it("Set nft types", async() => {
                 const nftIds = [1,2,3,4];
                 const nftTypes = [1,2,0,1];
@@ -107,7 +157,7 @@ contract("NineWorldsMulti", ([owner, user, user2, user3, ...accounts]) => {
                     errorMsgs.onlyOwner
                 );
             });
-        }); */
+        }); 
 
         beforeEach(("Generate nfts"), async () => {
             const nftIds = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
@@ -125,7 +175,7 @@ contract("NineWorldsMulti", ([owner, user, user2, user3, ...accounts]) => {
             }
         })
         describe("Match tests", () => {
-            /*it("Should allow create new match", async () =>{
+            it("Should allow create new match", async () =>{
                 const matchCount = new BN('5');
                 const matchId = new BN('1');
                 const expectedValidNfts = [new BN('1'), new BN('2'), new BN('3'), new BN('4'), new BN('5'), new BN('6'), new BN('7'), new BN('8'), new BN('9'), new BN('10')];
@@ -176,7 +226,6 @@ contract("NineWorldsMulti", ([owner, user, user2, user3, ...accounts]) => {
                     errorMsgs.matchNftAmountExceedUserValid
                 );
             });
-            */
         });
 
 
@@ -189,7 +238,6 @@ contract("NineWorldsMulti", ([owner, user, user2, user3, ...accounts]) => {
             const receiptObjCall = await vrfCoordinatorMock.callBackWithRandomness(requestId, randomValue, minigameContract.address);
             await expectEvent.inTransaction(receiptObjCall["receipt"]["transactionHash"], minigameContract, "RandomnessEvent", { requestId: requestId });
         })
-        /*
         describe("Initialize match test", () => {
             it("Should allow resolve match with user", async () =>{
                 const dailyMatch = new BN("1");
@@ -255,7 +303,7 @@ contract("NineWorldsMulti", ([owner, user, user2, user3, ...accounts]) => {
                 );
             });
             
-        }); */
+        }); 
         beforeEach("Initialize match", async () => {
             const nftPointForPlayer = new BN("10")
             const nftPointForComputer = new BN("5");
@@ -338,7 +386,6 @@ contract("NineWorldsMulti", ([owner, user, user2, user3, ...accounts]) => {
                     nftComputerStatus.points.should.be.bignumber.equal(nftPointForComputer);
                 }
             });
-            /*
             it("Should deny resolve not created match with user2", async () =>{
                 await expectRevert (
                     minigameContract.resolveMatch({ from: user2 }),
@@ -358,7 +405,7 @@ contract("NineWorldsMulti", ([owner, user, user2, user3, ...accounts]) => {
                     minigameContract.resolveMatch({ from: user2 }),
                     errorMsgs.notInitializedMatch
                 )
-            });*/
+            });
         });
     })
 })

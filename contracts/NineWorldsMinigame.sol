@@ -54,7 +54,7 @@ contract NineWorldsMinigame is Ownable, VRFConsumerBase {
     uint256 public maxMatchesPerDay;
     uint256 public maxNftMatchCount;
     uint256 public nftPointForPlayerTie;
-    uint256 public nftPointForComputerTi;
+    uint256 public nftPointForComputerTie;
     uint256 public maxValidId;
     
 
@@ -250,19 +250,18 @@ contract NineWorldsMinigame is Ownable, VRFConsumerBase {
             for(uint8 i = 0; i < playerNfts.length; i++) {
                 nftStatusById[playerNfts[i]].points += nftPointForPlayerWinner;
             }
-            matchesById[matchId].matchResult = 3; // Player win
-            matchesById[matchId].didPlayerWin = true;
+            matchesById[matchId].matchResult = MatchResult.PlayerWin; // Player win
         } else if(computerPoints > playerPoints) {
             for(uint8 i = 0; i < computerNfts.length; i++) {
                 nftStatusById[computerNfts[i]].points += nftPointForComputerWinner;
             }
-            matchesById[matchId].matchResult = 2; // Computer Win
+            matchesById[matchId].matchResult = MatchResult.ComputerWin; // Computer Win
         } else {
             for(uint8 i = 0; i < playerNfts.length; i++) {
                 nftStatusById[playerNfts[i]].points += nftPointForPlayerTie;
                 nftStatusById[computerNfts[i]].points += nftPointForComputerTie;
             }
-            matchesById[matchId].matchResult = 1; // Tie
+            matchesById[matchId].matchResult = MatchResult.Tie; // Tie
         }
         matchesById[matchId].isMatchFinished = true;
         usersLastMatchId[_msgSender()] = 0;
@@ -272,6 +271,8 @@ contract NineWorldsMinigame is Ownable, VRFConsumerBase {
     function resolveMatchWithReorder(uint256 indexA, uint256 indexB) external {
         uint256 matchId = usersLastMatchId[_msgSender()];
         
+        uint256 playerPower;
+        uint256 computerPower;
         (playerPower, computerPower) = getPlayerAndComputerPower(matchId);
         require(
             playerPower > computerPower, 
@@ -286,10 +287,10 @@ contract NineWorldsMinigame is Ownable, VRFConsumerBase {
     }
 
     function getPlayerAndComputerPower(uint256 matchId) internal view returns (uint256, uint256) {
-        Match memory actualMatch = matchesById[matchId];
+        Match storage actualMatch = matchesById[matchId];
         uint256 playerPower = 0;
         uint256 computerPower = 0;
-        for(uint i = 0; i < actualMatch.matchCount; i++) {
+        for(uint i = 0; i < actualMatch.nftMatchCount; i++) {
             playerPower += nftStatusById[actualMatch.playerNfts[i]].totalPower;
             computerPower += nftStatusById[actualMatch.computerNfts[i]].totalPower;
         }
@@ -330,7 +331,7 @@ contract NineWorldsMinigame is Ownable, VRFConsumerBase {
         nftPointForComputerTie = _nftPointForComputerTie;
     }
 
-    function setmaxValidId(uint256 _maxValidId) external onlyOwner{
+    function setMaxValidId(uint256 _maxValidId) external onlyOwner{
         maxValidId = _maxValidId;
     }
 
