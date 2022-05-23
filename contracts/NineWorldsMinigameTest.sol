@@ -84,13 +84,13 @@ contract NineWorldsMinigameTest is Ownable, VRFConsumerBase {
     constructor(
         IVikings _vikingsContract, 
         uint256 _maxMatchesPerDay, 
-        uint256 _maxNftMatchCount,
-        address _vrfCoordinatorAddress, 
+        uint256 _maxNftMatchCount, 
         uint256 _nftPointForPlayerWinner, 
         uint256 _nftPointForComputerWinner,
         uint256 _nftPointForPlayerTie,
         uint256 _nftPointForComputerTie,
-        uint256 _maxValidId
+        uint256 _maxValidId,
+        address _vrfCoordinatorAddress
     )
     //VRFConsumerBase(0x3d2341ADb2D31f1c5530cDC622016af293177AE0, 0xb0897686c545045aFc77CF20eC7A532E3120E0F1){
     VRFConsumerBase(_vrfCoordinatorAddress, 0xb0897686c545045aFc77CF20eC7A532E3120E0F1) {
@@ -178,6 +178,7 @@ contract NineWorldsMinigameTest is Ownable, VRFConsumerBase {
 
     function initializeMatchFor(address user) public {
         uint256 matchId = usersLastMatchId[user];
+        require(matchId != 0, "NineWorldsMinigame: No pending match to initialize");
         require(matchesById[matchId].playerNfts.length == 0, "NineWorldsMinigame: Match is already initialized");
         require(matchesById[matchId].matchRandomSeed > 0, "NineWorldsMinigame: RandomNumber not available yet");
         uint256 randomness = matchesById[matchId].matchRandomSeed;

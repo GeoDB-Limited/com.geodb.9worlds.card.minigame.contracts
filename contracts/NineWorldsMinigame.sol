@@ -177,6 +177,7 @@ contract NineWorldsMinigame is Ownable, VRFConsumerBase {
 
     function initializeMatchFor(address user) public {
         uint256 matchId = usersLastMatchId[user];
+        require(matchId != 0, "NineWorldsMinigame: No pending match to initialize");
         require(matchesById[matchId].playerNfts.length == 0, "NineWorldsMinigame: Match is already initialized");
         require(matchesById[matchId].matchRandomSeed > 0, "NineWorldsMinigame: RandomNumber not available yet");
         uint256 randomness = matchesById[matchId].matchRandomSeed;

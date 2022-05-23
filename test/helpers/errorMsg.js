@@ -12,5 +12,6 @@ module.exports = {
     initializedMatch: "NineWorldsMinigame: Match is already initialized",
     matchFinished: "NineWorldsMinigame: Match is finished",
     reorder: "NineWorldsMinigame: Reorder not available: player power is less than computer power",
-    pendingMatch: "NineWorldsMinigame: Pending match"
+    pendingMatch: "NineWorldsMinigame: Pending match",
+    noPendingMatch: "NineWorldsMinigame: No pending match to initialize"
 };
