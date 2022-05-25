@@ -104,7 +104,7 @@ contract("NineWorldsMulti", ([owner, user, user2, user3, ...accounts]) => {
             it("Deny nft points for player tie with user", async () =>{
                 const nftPointForPlayerTie = new BN('10');
                 await expectRevert(
-                    minigameContract.setNftPointForPlayerTie(nftPointForPlayerTie, {from: owner}),
+                    minigameContract.setNftPointForPlayerTie(nftPointForPlayerTie, {from: user}),
                     errorMsgs.onlyOwner
                 );
             });
@@ -117,7 +117,7 @@ contract("NineWorldsMulti", ([owner, user, user2, user3, ...accounts]) => {
             it("Deny nft points for computer tie with user", async () =>{
                 const nftPointForComputerTie = new BN('10');
                 await expectRevert(
-                    minigameContract.setNftPointForComputerTie(nftPointForComputerTie, {from: owner}),
+                    minigameContract.setNftPointForComputerTie(nftPointForComputerTie, {from: user}),
                     errorMsgs.onlyOwner
                 );
             });
@@ -130,7 +130,7 @@ contract("NineWorldsMulti", ([owner, user, user2, user3, ...accounts]) => {
             it("Deny set max valid id with user", async () =>{
                 const maxValidId = new BN('100');
                 await expectRevert(
-                    minigameContract.setMaxValidId(maxValidId, {from: owner}),
+                    minigameContract.setMaxValidId(maxValidId, {from: user}),
                     errorMsgs.onlyOwner
                 );
             });

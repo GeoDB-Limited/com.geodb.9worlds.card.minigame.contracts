@@ -75,8 +75,7 @@ contract NineWorldsMinigameTest is Ownable, VRFConsumerBase {
     uint256 internal feeLink = 1e14; // 0.0001 LINK POLYGON MATIC
 
     event RequestValues(bytes32 requestId);
-    event RandomnessEvent(bytes32 requestId);
-    event RandomMatchId(bytes32 requestId, uint256 matchId);
+    event RandomnessEvent(bytes32 requestId, uint256 matchId);
     event MatchCreated(uint256 matchId, address user);
     event MatchInitialized(uint256 matchId, address initializerUser);
     event MatchResolved(uint256 matchId);
@@ -178,92 +177,100 @@ contract NineWorldsMinigameTest is Ownable, VRFConsumerBase {
 
     function initializeMatchFor(address user) public {
         uint256 matchId = usersLastMatchId[user];
-        require(matchId != 0, "NineWorldsMinigame: No pending match to initialize");
-        require(matchesById[matchId].playerNfts.length == 0, "NineWorldsMinigame: Match is already initialized");
-        require(matchesById[matchId].matchRandomSeed > 0, "NineWorldsMinigame: RandomNumber not available yet");
-        uint256 randomness = matchesById[matchId].matchRandomSeed;
-        uint256 nftMatchCount = matchesById[matchId].nftMatchCount;
+        if(_isOwnerOf(user, matchesById[matchId].validNftsForMatch)) {
+            require(matchId != 0, "NineWorldsMinigame: No pending match to initialize");
+            require(matchesById[matchId].playerNfts.length == 0, "NineWorldsMinigame: Match is already initialized");
+            require(matchesById[matchId].matchRandomSeed > 0, "NineWorldsMinigame: RandomNumber not available yet");
+            uint256 randomness = matchesById[matchId].matchRandomSeed;
+            uint256 nftMatchCount = matchesById[matchId].nftMatchCount;
 
-        uint256[] memory expandedValues = _expandRandomAux(randomness, nftMatchCount * 2);
-        
-        uint256[] memory validPlayerNft = matchesById[matchId].validNftsForMatch;
-        for (uint8 i = 0; i < nftMatchCount; i++) {
-            uint256 randomPlayerNftIndex = _randomIndex(0, validPlayerNft.length, expandedValues[i]);
+            uint256[] memory expandedValues = _expandRandomAux(randomness, nftMatchCount * 2);
             
+            uint256[] memory validPlayerNft = matchesById[matchId].validNftsForMatch;
+            for (uint8 i = 0; i < nftMatchCount; i++) {
+                uint256 randomPlayerNftIndex = _randomIndex(0, validPlayerNft.length, expandedValues[i]);
+                
 
-            while(matchesById[matchId].repeatedPlayerRandomNumbers[randomPlayerNftIndex] == true) {
-                randomPlayerNftIndex = (randomPlayerNftIndex + 1) % nftMatchCount;
+                while(matchesById[matchId].repeatedPlayerRandomNumbers[randomPlayerNftIndex] == true) {
+                    randomPlayerNftIndex = (randomPlayerNftIndex + 1) % nftMatchCount;
+                }
+                uint256 randomPlayerNft = validPlayerNft[randomPlayerNftIndex];
+                matchesById[matchId].playerNfts.push(randomPlayerNft);
+                matchesById[matchId].repeatedPlayerRandomNumbers[randomPlayerNftIndex] = true;
+
+            // nftMatchesByNftId[randomPlayerNft] = matchesById[matchId];
+                nftStatusById[randomPlayerNft].dailyMatchCounter++;
+                nftStatusById[randomPlayerNft].currentMatchId = matchId;          
+
+                uint256 randomComputerNftIndex = _randomIndex(1, totalNfts, expandedValues[i + nftMatchCount]);
+                while(matchesById[matchId].repeatedComputerRandomNumbers[randomComputerNftIndex] == true) {
+                    randomComputerNftIndex = (randomComputerNftIndex + 1) % nftMatchCount;
+                }
+                matchesById[matchId].computerNfts.push(randomComputerNftIndex);
+                matchesById[matchId].repeatedComputerRandomNumbers[randomComputerNftIndex] = true;
             }
-            uint256 randomPlayerNft = validPlayerNft[randomPlayerNftIndex];
-            matchesById[matchId].playerNfts.push(randomPlayerNft);
-            matchesById[matchId].repeatedPlayerRandomNumbers[randomPlayerNftIndex] = true;
-
-           // nftMatchesByNftId[randomPlayerNft] = matchesById[matchId];
-            nftStatusById[randomPlayerNft].dailyMatchCounter++;
-            nftStatusById[randomPlayerNft].currentMatchId = matchId;
-
-            uint256 randomComputerNftIndex = _randomIndex(1, totalNfts, expandedValues[i + nftMatchCount]);
-            while(matchesById[matchId].repeatedComputerRandomNumbers[randomComputerNftIndex] == true) {
-                randomComputerNftIndex = (randomComputerNftIndex + 1) % nftMatchCount;
-            }
-            matchesById[matchId].computerNfts.push(randomComputerNftIndex);
-            matchesById[matchId].repeatedComputerRandomNumbers[randomComputerNftIndex] = true;
+        } else {
+            matchesById[matchId].isMatchFinished = true;
+            usersLastMatchId[user] = 0;
         }
         emit MatchInitialized(matchId, _msgSender());
     }
 
     function resolveMatch() public {
         uint256 matchId = usersLastMatchId[_msgSender()];
-        require(matchesById[matchId].playerNfts.length > 0, "NineWorldsMinigame: Match is not created or initialized");
-        require(!matchesById[matchId].isMatchFinished, "NineWorldsMinigame: Match is finished");
-        uint256[] memory playerNfts = matchesById[matchId].playerNfts;
-        uint256[] memory computerNfts = matchesById[matchId].computerNfts;
-        uint256 playerPoints;
-        uint256 computerPoints;
-        for (uint8 i = 0; i < matchesById[matchId].nftMatchCount; i++) {
-            NftType playerType = nftStatusById[playerNfts[i]].nftType;
-            NftType computerType = nftStatusById[computerNfts[i]].nftType;
-            
-            if (playerType == NftType.Axe && computerType == NftType.Sword) {
-                computerPoints++;
-                //AIWinner;
-            } else if (playerType == NftType.Shield && computerType == NftType.Sword) {
-                playerPoints++;
-                //PlayerWinner;
-            } else if (playerType == NftType.Shield && computerType == NftType.Axe) {
-                computerPoints++;
-                //AIWinner;
-            } else if (playerType == NftType.Sword && computerType == NftType.Axe) {
-                playerPoints++;
-                //PlayerWinner;
-            } else if (playerType == NftType.Sword && computerType == NftType.Shield) {
-                computerPoints++;
-                //AIWinner;
-            } else if (playerType == NftType.Axe && computerType == NftType.Shield) {
-                playerPoints++;
-                //PlayerWinner;
-            } else {
-                //Tie;
+        if(_isOwnerOf(_msgSender(), matchesById[matchId].validNftsForMatch)) {
+            require(matchesById[matchId].playerNfts.length > 0, "NineWorldsMinigame: Match is not created or initialized");
+            require(!matchesById[matchId].isMatchFinished, "NineWorldsMinigame: Match is finished");
+            uint256[] memory playerNfts = matchesById[matchId].playerNfts;
+            uint256[] memory computerNfts = matchesById[matchId].computerNfts;
+            uint256 playerPoints;
+            uint256 computerPoints;
+            for (uint8 i = 0; i < matchesById[matchId].nftMatchCount; i++) {
+                NftType playerType = nftStatusById[playerNfts[i]].nftType;
+                NftType computerType = nftStatusById[computerNfts[i]].nftType;
+                
+                if (playerType == NftType.Axe && computerType == NftType.Sword) {
+                    computerPoints++;
+                    //AIWinner;
+                } else if (playerType == NftType.Shield && computerType == NftType.Sword) {
+                    playerPoints++;
+                    //PlayerWinner;
+                } else if (playerType == NftType.Shield && computerType == NftType.Axe) {
+                    computerPoints++;
+                    //AIWinner;
+                } else if (playerType == NftType.Sword && computerType == NftType.Axe) {
+                    playerPoints++;
+                    //PlayerWinner;
+                } else if (playerType == NftType.Sword && computerType == NftType.Shield) {
+                    computerPoints++;
+                    //AIWinner;
+                } else if (playerType == NftType.Axe && computerType == NftType.Shield) {
+                    playerPoints++;
+                    //PlayerWinner;
+                } else {
+                    //Tie;
+                }
+                nftStatusById[playerNfts[i]].currentMatchId = 0;
             }
-            nftStatusById[playerNfts[i]].currentMatchId = 0;
-        }
 
-        if(playerPoints > computerPoints) {
-            for(uint8 i = 0; i < playerNfts.length; i++) {
-                nftStatusById[playerNfts[i]].points += nftPointForPlayerWinner;
+            if(playerPoints > computerPoints) {
+                for(uint8 i = 0; i < playerNfts.length; i++) {
+                    nftStatusById[playerNfts[i]].points += nftPointForPlayerWinner;
+                }
+                matchesById[matchId].matchResult = MatchResult.PlayerWin; // Player win
+            } else if(computerPoints > playerPoints) {
+                for(uint8 i = 0; i < computerNfts.length; i++) {
+                    nftStatusById[computerNfts[i]].points += nftPointForComputerWinner;
+                }
+                matchesById[matchId].matchResult = MatchResult.ComputerWin; // Computer Win
+            } else {
+                for(uint8 i = 0; i < playerNfts.length; i++) {
+                    nftStatusById[playerNfts[i]].points += nftPointForPlayerTie;
+                    nftStatusById[computerNfts[i]].points += nftPointForComputerTie;
+                }
+                matchesById[matchId].matchResult = MatchResult.Tie; // Tie
             }
-            matchesById[matchId].matchResult = MatchResult.PlayerWin; // Player win
-        } else if(computerPoints > playerPoints) {
-            for(uint8 i = 0; i < computerNfts.length; i++) {
-                nftStatusById[computerNfts[i]].points += nftPointForComputerWinner;
-            }
-            matchesById[matchId].matchResult = MatchResult.ComputerWin; // Computer Win
-        } else {
-            for(uint8 i = 0; i < playerNfts.length; i++) {
-                nftStatusById[playerNfts[i]].points += nftPointForPlayerTie;
-                nftStatusById[computerNfts[i]].points += nftPointForComputerTie;
-            }
-            matchesById[matchId].matchResult = MatchResult.Tie; // Tie
+            matchesById[matchId].isMatchFinished = true;
         }
         matchesById[matchId].isMatchFinished = true;
         usersLastMatchId[_msgSender()] = 0;
@@ -337,6 +344,15 @@ contract NineWorldsMinigameTest is Ownable, VRFConsumerBase {
         maxValidId = _maxValidId;
     }
 
+    function _isOwnerOf(address _owner, uint256[] memory _ids) internal returns (bool) {
+        for(uint8 i = 0; i < _ids.length; i++) {
+            if(vikingsContract.ownerOf(_ids[i]) != _owner){
+                return false;
+            }
+        }
+        return true;
+    }
+
     function _expandRandomAux(uint256 randomValue, uint256 n) internal pure returns (uint256[] memory expandedValues) {
         expandedValues = new uint256[](n);
         for (uint256 i = 0; i < n; i++) {
@@ -359,7 +375,6 @@ contract NineWorldsMinigameTest is Ownable, VRFConsumerBase {
         uint256 matchId = matchesByRequestId[requestId];
         matchesById[matchId].matchRandomSeed = randomness;
 
-        emit RandomMatchId(requestId, matchId);
-        emit RandomnessEvent(requestId);
+        emit RandomnessEvent(requestId, matchId);
     }
 }
