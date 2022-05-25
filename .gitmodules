@@ -1,0 +1,3 @@
+[submodule "unity"]
+	path = unity
+	url = https://github.com/GeoDB-Limited/com.geodb.9worlds.mini.game.unity
