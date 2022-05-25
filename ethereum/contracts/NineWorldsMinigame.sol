@@ -315,6 +315,15 @@ contract NineWorldsMinigame is Ownable, VRFConsumerBase {
         return matchesById[matchId].computerNfts[index];
     }
 
+    function pointBalanceOf(address user) external view returns (uint256) {
+        uint256[] memory userNfts = vikingsContract.walletOfOwner(user);
+        uint256 totalPoints;
+        for(uint8 i = 0; i < userNfts.length; i++) {
+            totalPoints += nftStatusById[userNfts[i]].points;
+        }
+        return totalPoints;
+    }
+
     function setNftPointForPlayerWinner(uint256 _points) external onlyOwner {
         nftPointForPlayerWinner = _points;
     }
