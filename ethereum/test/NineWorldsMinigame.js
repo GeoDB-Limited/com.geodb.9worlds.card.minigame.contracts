@@ -157,7 +157,7 @@ contract("NineWorldsMulti", ([owner, user, user2, user3, ...accounts]) => {
                     errorMsgs.onlyOwner
                 );
             });
-        });  
+        });   
 
         describe("Functional tests", () => {
             beforeEach(("Generate nfts"), async () => {
@@ -197,6 +197,106 @@ contract("NineWorldsMulti", ([owner, user, user2, user3, ...accounts]) => {
                     }
 
                 });
+                it("Should deny create two new matches", async () =>{
+                    const matchCount = new BN('5');
+                    const matchId = new BN('1');
+                    const expectedValidNfts = [new BN('1'), new BN('2'), new BN('3'), new BN('4'), new BN('5'), new BN('6'), new BN('7'), new BN('8'), new BN('9'), new BN('10')];
+                    const transaction = await minigameContract.createMatchAndRequestRandom(matchCount, { from: user });
+                    const requestEvent = expectEvent(transaction, "RequestValues", {});
+                    const requestId = requestEvent.args.requestId;
+                    const randomValue = utils.getRandom();
+                    const receiptObjCall = await vrfCoordinatorMock.callBackWithRandomness(requestId, randomValue, minigameContract.address);
+                    await expectEvent.inTransaction(receiptObjCall["receipt"]["transactionHash"], minigameContract, "RandomnessEvent", { requestId: requestId });
+
+                    const match = await minigameContract.matchesById(matchId);
+                    match.matchId.should.be.bignumber.equal(matchId);
+                    match.nftMatchCount.should.be.bignumber.equal(matchCount);
+                    match.matchRandomSeed.should.be.bignumber.equal(randomValue);
+
+                    for(let i = 0; i < expectedValidNfts.length; i++) {
+                        (await minigameContract.getValidNft(matchId, i)).should.be.bignumber.equal(expectedValidNfts[i]);
+                    }
+
+                    await expectRevert(
+                        minigameContract.createMatchAndRequestRandom(matchCount, { from: user }),
+                        errorMsgs.pendingMatch
+                    );
+
+                });
+                it("Should allow overpass maxMatchesPerDay if actual timestamp > one day", async () =>{
+                    const maxMatchesPerDay = 1;
+                    const matchCount = new BN('10');
+                    const matchId = new BN('1');
+                    await minigameContract.setMaxMatchesPerDay(maxMatchesPerDay, {from: owner })
+                    await minigameContract.setMaxNftMatchCount(matchCount, {from: owner});
+                    const expectedValidNfts = [new BN('1'), new BN('2'), new BN('3'), new BN('4'), new BN('5'), new BN('6'), new BN('7'), new BN('8'), new BN('9'), new BN('10')];
+                    const transaction = await minigameContract.createMatchAndRequestRandom(matchCount, { from: user });
+                    const requestEvent = expectEvent(transaction, "RequestValues", {});
+                    const requestId = requestEvent.args.requestId;
+                    const randomValue = utils.getRandom();
+                    const receiptObjCall = await vrfCoordinatorMock.callBackWithRandomness(requestId, randomValue, minigameContract.address);
+                    await expectEvent.inTransaction(receiptObjCall["receipt"]["transactionHash"], minigameContract, "RandomnessEvent", { requestId: requestId });
+
+                    const match = await minigameContract.matchesById(matchId);
+                    match.matchId.should.be.bignumber.equal(matchId);
+                    match.nftMatchCount.should.be.bignumber.equal(matchCount);
+                    match.matchRandomSeed.should.be.bignumber.equal(randomValue);
+
+                    for(let i = 0; i < expectedValidNfts.length; i++) {
+                        (await minigameContract.getValidNft(matchId, i)).should.be.bignumber.equal(expectedValidNfts[i]);
+                    }
+                    await minigameContract.initializeMatchFor(user, { from: user } );
+                    await minigameContract.resolveMatch({ from: user });
+
+                    await time.increase(time.duration.days(2));
+                    const matchId2 = new BN("2");
+                    const transaction2 = await minigameContract.createMatchAndRequestRandom(matchCount, { from: user });
+                    const requestEvent2 = expectEvent(transaction2, "RequestValues", {});
+                    const requestId2 = requestEvent2.args.requestId;
+                    const randomValue2 = utils.getRandom();
+                    const receiptObjCall2 = await vrfCoordinatorMock.callBackWithRandomness(requestId2, randomValue2, minigameContract.address);
+                    await expectEvent.inTransaction(receiptObjCall2["receipt"]["transactionHash"], minigameContract, "RandomnessEvent", { requestId: requestId2 });
+
+                    const match2 = await minigameContract.matchesById(matchId2);
+                    match2.matchId.should.be.bignumber.equal(matchId2);
+                    match2.nftMatchCount.should.be.bignumber.equal(matchCount);
+                    match2.matchRandomSeed.should.be.bignumber.equal(randomValue2);
+
+                    for(let i = 0; i < expectedValidNfts.length; i++) {
+                        (await minigameContract.getValidNft(matchId, i)).should.be.bignumber.equal(expectedValidNfts[i]);
+                    }
+
+                });
+                it("Should deny overpass maxMatchesPerDay if actual timestamp < one day", async () =>{
+                    const maxMatchesPerDay = 1;
+                    const matchCount = new BN('10');
+                    const matchId = new BN('1');
+                    await minigameContract.setMaxMatchesPerDay(maxMatchesPerDay, {from: owner})
+                    await minigameContract.setMaxNftMatchCount(matchCount, {from: owner});
+                    const expectedValidNfts = [new BN('1'), new BN('2'), new BN('3'), new BN('4'), new BN('5'), new BN('6'), new BN('7'), new BN('8'), new BN('9'), new BN('10')];
+                    const transaction = await minigameContract.createMatchAndRequestRandom(matchCount, { from: user });
+                    const requestEvent = expectEvent(transaction, "RequestValues", {});
+                    const requestId = requestEvent.args.requestId;
+                    const randomValue = utils.getRandom();
+                    const receiptObjCall = await vrfCoordinatorMock.callBackWithRandomness(requestId, randomValue, minigameContract.address);
+                    await expectEvent.inTransaction(receiptObjCall["receipt"]["transactionHash"], minigameContract, "RandomnessEvent", { requestId: requestId });
+
+                    const match = await minigameContract.matchesById(matchId);
+                    match.matchId.should.be.bignumber.equal(matchId);
+                    match.nftMatchCount.should.be.bignumber.equal(matchCount);
+                    match.matchRandomSeed.should.be.bignumber.equal(randomValue);
+
+                    for(let i = 0; i < expectedValidNfts.length; i++) {
+                        (await minigameContract.getValidNft(matchId, i)).should.be.bignumber.equal(expectedValidNfts[i]);
+                    }
+                    await minigameContract.initializeMatchFor(user, { from: user } );
+                    await minigameContract.resolveMatch({ from: user });
+
+                    await expectRevert(
+                        minigameContract.createMatchAndRequestRandom(matchCount, { from: user }),
+                        errorMsgs.matchNftAmountExceedUserValid
+                    );
+                });
                 it("Should deny create new match if matchCount > maxMatchCount", async () =>{
                     const matchCount = 30;
                     await expectRevert(
@@ -227,7 +327,7 @@ contract("NineWorldsMulti", ([owner, user, user2, user3, ...accounts]) => {
                         minigameContract.createMatchAndRequestRandom(matchCount, { from: user2 }),
                         errorMsgs.matchNftAmountExceedUserValid
                     );
-                });
+                }); 
             });
             describe("Initialize match test", () => {
                 beforeEach("Create match and generate random number", async () => {
@@ -302,7 +402,7 @@ contract("NineWorldsMulti", ([owner, user, user2, user3, ...accounts]) => {
                     );
                 });
                 
-            });
+            }); 
             describe("Resolve match test", () => {
                 beforeEach("Initialize match", async () => {
                     const matchCount = 5;
@@ -416,7 +516,7 @@ contract("NineWorldsMulti", ([owner, user, user2, user3, ...accounts]) => {
                         errorMsgs.notInitializedMatch
                     )
                 });
-            }); 
+            });  
         })
     })
 })
