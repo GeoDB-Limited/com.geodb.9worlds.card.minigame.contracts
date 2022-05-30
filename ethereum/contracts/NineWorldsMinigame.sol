@@ -137,30 +137,32 @@ contract NineWorldsMinigame is Ownable, VRFConsumerBase {
             _nftMatchCount <= maxNftMatchCount,
             "NineWorldsMinigame: Match nft amount exceed max"
         );
-        uint256 nftBalance = vikingsContract.balanceOf(_msgSender());
         require (
             nftBalance >= _nftMatchCount,
             "NineWorldsMinigame: Match nft amount exceed user nft amount"
         );
 
         // Create new Match
+        uint256[] memory userNfts = vikingsContract.walletOfOwner(_msgSender());
         lastMatchId.increment();
         uint256 matchId = lastMatchId.current();
 
         matchesById[matchId].matchId = matchId;
         matchesById[matchId].nftMatchCount = _nftMatchCount; 
-        for (uint8 i = 0; i < nftBalance; i++) {
-            uint256 nftId = vikingsContract.tokenOfOwnerByIndex(_msgSender(), i);
-            if(nftId <= maxValidId){
-                if(nftStatusById[nftId].currentMatchId == 0) {
-                    if(nftStatusById[nftId].dailyExpirationTimestamp + ONE_DAY_IN_SECONDS < block.timestamp){
-                        nftStatusById[nftId].dailyExpirationTimestamp = block.timestamp;
-                        nftStatusById[nftId].dailyMatchCounter = 0;
-                    }
-                    if(nftStatusById[nftId].dailyMatchCounter < maxMatchesPerDay) {
-                        matchesById[matchId].validNftsForMatch.push(nftId);
-                    }
-                }
+        for (uint8 i = 0; i < userNfts.length; i++) {
+            uint256 nftId = userNfts[i];
+            if (nftId > maxValidId){
+                continue;
+            }
+            if (nftStatusById[nftId].currentMatchId != 0){
+                continue;        
+            }
+            if(nftStatusById[nftId].dailyExpirationTimestamp + ONE_DAY_IN_SECONDS < block.timestamp){
+                nftStatusById[nftId].dailyExpirationTimestamp = block.timestamp;
+                nftStatusById[nftId].dailyMatchCounter = 0;
+            }
+            if(nftStatusById[nftId].dailyMatchCounter < maxMatchesPerDay) {
+                matchesById[matchId].validNftsForMatch.push(nftId);
             }
         }
 
@@ -175,42 +177,42 @@ contract NineWorldsMinigame is Ownable, VRFConsumerBase {
     }
 
     function initializeMatchFor(address user) public {
-        uint256 matchId = usersLastMatchId[user];
-        if(_isOwnerOf(user, matchesById[matchId].validNftsForMatch)) {
-            require(matchId != 0, "NineWorldsMinigame: No pending match to initialize");
-            require(matchesById[matchId].playerNfts.length == 0, "NineWorldsMinigame: Match is already initialized");
-            require(matchesById[matchId].matchRandomSeed > 0, "NineWorldsMinigame: RandomNumber not available yet");
-            uint256 randomness = matchesById[matchId].matchRandomSeed;
-            uint256 nftMatchCount = matchesById[matchId].nftMatchCount;
-
-            uint256[] memory expandedValues = _expandRandomAux(randomness, nftMatchCount * 2);
-            
-            uint256[] memory validPlayerNft = matchesById[matchId].validNftsForMatch;
-            for (uint8 i = 0; i < nftMatchCount; i++) {
-                uint256 randomPlayerNftIndex = _randomIndex(0, validPlayerNft.length, expandedValues[i]);
-                
-
-                while(matchesById[matchId].repeatedPlayerRandomNumbers[randomPlayerNftIndex] == true) {
-                    randomPlayerNftIndex = (randomPlayerNftIndex + 1) % nftMatchCount;
-                }
-                uint256 randomPlayerNft = validPlayerNft[randomPlayerNftIndex];
-                matchesById[matchId].playerNfts.push(randomPlayerNft);
-                matchesById[matchId].repeatedPlayerRandomNumbers[randomPlayerNftIndex] = true;
-
-            // nftMatchesByNftId[randomPlayerNft] = matchesById[matchId];
-                nftStatusById[randomPlayerNft].dailyMatchCounter++;
-                nftStatusById[randomPlayerNft].currentMatchId = matchId;          
-
-                uint256 randomComputerNftIndex = _randomIndex(1, totalNfts, expandedValues[i + nftMatchCount]);
-                while(matchesById[matchId].repeatedComputerRandomNumbers[randomComputerNftIndex] == true) {
-                    randomComputerNftIndex = (randomComputerNftIndex + 1) % nftMatchCount;
-                }
-                matchesById[matchId].computerNfts.push(randomComputerNftIndex);
-                matchesById[matchId].repeatedComputerRandomNumbers[randomComputerNftIndex] = true;
-            }
-        } else {
+        if (!_isOwnerOf(user, matchesById[matchId].validNftsForMatch)) {
             matchesById[matchId].isMatchFinished = true;
             usersLastMatchId[user] = 0;
+            return;
+        }
+        uint256 matchId = usersLastMatchId[user];
+        require(matchId != 0, "NineWorldsMinigame: No pending match to initialize");
+        require(matchesById[matchId].playerNfts.length == 0, "NineWorldsMinigame: Match is already initialized");
+        require(matchesById[matchId].matchRandomSeed > 0, "NineWorldsMinigame: RandomNumber not available yet");
+        uint256 randomness = matchesById[matchId].matchRandomSeed;
+        uint256 nftMatchCount = matchesById[matchId].nftMatchCount;
+
+        uint256[] memory expandedValues = _expandRandomAux(randomness, nftMatchCount * 2);
+        
+        uint256[] memory validPlayerNft = matchesById[matchId].validNftsForMatch;
+        for (uint8 i = 0; i < nftMatchCount; i++) {
+            uint256 randomPlayerNftIndex = _randomIndex(0, validPlayerNft.length, expandedValues[i]);
+            
+
+            while(matchesById[matchId].repeatedPlayerRandomNumbers[randomPlayerNftIndex] == true) {
+                randomPlayerNftIndex = (randomPlayerNftIndex + 1) % nftMatchCount;
+            }
+            uint256 randomPlayerNft = validPlayerNft[randomPlayerNftIndex];
+            matchesById[matchId].playerNfts.push(randomPlayerNft);
+            matchesById[matchId].repeatedPlayerRandomNumbers[randomPlayerNftIndex] = true;
+
+        // nftMatchesByNftId[randomPlayerNft] = matchesById[matchId];
+            nftStatusById[randomPlayerNft].dailyMatchCounter++;
+            nftStatusById[randomPlayerNft].currentMatchId = matchId;          
+
+            uint256 randomComputerNftIndex = _randomIndex(1, totalNfts, expandedValues[i + nftMatchCount]);
+            while(matchesById[matchId].repeatedComputerRandomNumbers[randomComputerNftIndex] == true) {
+                randomComputerNftIndex = (randomComputerNftIndex + 1) % nftMatchCount;
+            }
+            matchesById[matchId].computerNfts.push(randomComputerNftIndex);
+            matchesById[matchId].repeatedComputerRandomNumbers[randomComputerNftIndex] = true;
         }
         emit MatchInitialized(matchId, _msgSender());
     }
@@ -276,26 +278,26 @@ contract NineWorldsMinigame is Ownable, VRFConsumerBase {
         emit MatchResolved(matchId);
     }
 
-    function resolveMatchWithReorder(uint256 indexA, uint256 indexB) external {
+    function resolveMatchWithReorder(uint256 _indexA, uint256 _indexB) external {
         uint256 matchId = usersLastMatchId[_msgSender()];
         
         uint256 playerPower;
         uint256 computerPower;
-        (playerPower, computerPower) = getPlayerAndComputerPower(matchId);
+        (playerPower, computerPower) = _getPlayerAndComputerPower(matchId);
         require(
             playerPower > computerPower, 
             "NineWorldsMinigame: Reorder not available: player power is less than computer power"
         );
         uint256[] storage playerNfts = matchesById[matchId].playerNfts;
-        uint nftAux = playerNfts[indexB];
-        playerNfts[indexB] = playerNfts[indexA];
-        playerNfts[indexA] = nftAux;
+        uint nftAux = playerNfts[_indexB];
+        playerNfts[_indexB] = playerNfts[_indexA];
+        playerNfts[_indexA] = nftAux;
 
         resolveMatch();
     }
 
-    function getPlayerAndComputerPower(uint256 matchId) internal view returns (uint256, uint256) {
-        Match storage actualMatch = matchesById[matchId];
+    function _getPlayerAndComputerPower(uint256 _matchId) internal view returns (uint256, uint256) {
+        Match storage actualMatch = matchesById[_matchId];
         uint256 playerPower = 0;
         uint256 computerPower = 0;
         for(uint i = 0; i < actualMatch.nftMatchCount; i++) {
@@ -305,14 +307,14 @@ contract NineWorldsMinigame is Ownable, VRFConsumerBase {
         return (playerPower, computerPower);
     }
 
-    function getValidNft(uint256 matchId, uint8 index) external view returns(uint256) {
-        return matchesById[matchId].validNftsForMatch[index];
+    function getValidNft(uint256 _matchId, uint8 _index) external view returns(uint256) {
+        return matchesById[_matchId].validNftsForMatch[_index];
     }
-    function getValidPlayerNft(uint256 matchId, uint8 index) external view returns(uint256) {
-        return matchesById[matchId].playerNfts[index];
+    function getValidPlayerNft(uint256 _matchId, uint8 _index) external view returns(uint256) {
+        return matchesById[_matchId].playerNfts[_index];
     }
-    function getValidComputerNft(uint256 matchId, uint8 index) external view returns(uint256) {
-        return matchesById[matchId].computerNfts[index];
+    function getValidComputerNft(uint256 _matchId, uint8 _index) external view returns(uint256) {
+        return matchesById[_matchId].computerNfts[_index];
     }
 
     function pointBalanceOf(address user) external view returns (uint256) {
