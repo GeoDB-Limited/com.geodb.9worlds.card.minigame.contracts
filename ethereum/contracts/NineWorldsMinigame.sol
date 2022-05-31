@@ -129,6 +129,7 @@ contract NineWorldsMinigame is Ownable, VRFConsumerBase {
     }
 
     function createMatchAndRequestRandom(uint256 _nftMatchCount) external {
+        uint256[] memory userNfts = vikingsContract.walletOfOwner(_msgSender());
         require(
             usersLastMatchId[_msgSender()] == 0,
             "NineWorldsMinigame: Pending match"
@@ -138,12 +139,10 @@ contract NineWorldsMinigame is Ownable, VRFConsumerBase {
             "NineWorldsMinigame: Match nft amount exceed max"
         );
         require (
-            nftBalance >= _nftMatchCount,
+            userNfts.length >= _nftMatchCount,
             "NineWorldsMinigame: Match nft amount exceed user nft amount"
         );
 
-        // Create new Match
-        uint256[] memory userNfts = vikingsContract.walletOfOwner(_msgSender());
         lastMatchId.increment();
         uint256 matchId = lastMatchId.current();
 
@@ -177,12 +176,12 @@ contract NineWorldsMinigame is Ownable, VRFConsumerBase {
     }
 
     function initializeMatchFor(address user) public {
+        uint256 matchId = usersLastMatchId[user];
         if (!_isOwnerOf(user, matchesById[matchId].validNftsForMatch)) {
             matchesById[matchId].isMatchFinished = true;
             usersLastMatchId[user] = 0;
             return;
         }
-        uint256 matchId = usersLastMatchId[user];
         require(matchId != 0, "NineWorldsMinigame: No pending match to initialize");
         require(matchesById[matchId].playerNfts.length == 0, "NineWorldsMinigame: Match is already initialized");
         require(matchesById[matchId].matchRandomSeed > 0, "NineWorldsMinigame: RandomNumber not available yet");
@@ -193,26 +192,14 @@ contract NineWorldsMinigame is Ownable, VRFConsumerBase {
         
         uint256[] memory validPlayerNft = matchesById[matchId].validNftsForMatch;
         for (uint8 i = 0; i < nftMatchCount; i++) {
-            uint256 randomPlayerNftIndex = _randomIndex(0, validPlayerNft.length, expandedValues[i]);
-            
-
-            while(matchesById[matchId].repeatedPlayerRandomNumbers[randomPlayerNftIndex] == true) {
-                randomPlayerNftIndex = (randomPlayerNftIndex + 1) % nftMatchCount;
-            }
+            uint256 randomPlayerNftIndex = _generateNonRepeatedRandomIndex(0, validPlayerNft.length, expandedValues[i], matchesById[matchId].repeatedPlayerRandomNumbers);
             uint256 randomPlayerNft = validPlayerNft[randomPlayerNftIndex];
             matchesById[matchId].playerNfts.push(randomPlayerNft);
-            matchesById[matchId].repeatedPlayerRandomNumbers[randomPlayerNftIndex] = true;
-
-        // nftMatchesByNftId[randomPlayerNft] = matchesById[matchId];
             nftStatusById[randomPlayerNft].dailyMatchCounter++;
             nftStatusById[randomPlayerNft].currentMatchId = matchId;          
 
-            uint256 randomComputerNftIndex = _randomIndex(1, totalNfts, expandedValues[i + nftMatchCount]);
-            while(matchesById[matchId].repeatedComputerRandomNumbers[randomComputerNftIndex] == true) {
-                randomComputerNftIndex = (randomComputerNftIndex + 1) % nftMatchCount;
-            }
+            uint256 randomComputerNftIndex = _generateNonRepeatedRandomIndex(1, totalNfts, expandedValues[i + nftMatchCount], matchesById[matchId].repeatedComputerRandomNumbers);
             matchesById[matchId].computerNfts.push(randomComputerNftIndex);
-            matchesById[matchId].repeatedComputerRandomNumbers[randomComputerNftIndex] = true;
         }
         emit MatchInitialized(matchId, _msgSender());
     }
@@ -296,17 +283,6 @@ contract NineWorldsMinigame is Ownable, VRFConsumerBase {
         resolveMatch();
     }
 
-    function _getPlayerAndComputerPower(uint256 _matchId) internal view returns (uint256, uint256) {
-        Match storage actualMatch = matchesById[_matchId];
-        uint256 playerPower = 0;
-        uint256 computerPower = 0;
-        for(uint i = 0; i < actualMatch.nftMatchCount; i++) {
-            playerPower += nftStatusById[actualMatch.playerNfts[i]].totalPower;
-            computerPower += nftStatusById[actualMatch.computerNfts[i]].totalPower;
-        }
-        return (playerPower, computerPower);
-    }
-
     function getValidNft(uint256 _matchId, uint8 _index) external view returns(uint256) {
         return matchesById[_matchId].validNftsForMatch[_index];
     }
@@ -354,7 +330,18 @@ contract NineWorldsMinigame is Ownable, VRFConsumerBase {
         maxValidId = _maxValidId;
     }
 
-    function _isOwnerOf(address _owner, uint256[] memory _ids) internal returns (bool) {
+    function _getPlayerAndComputerPower(uint256 _matchId) internal view returns (uint256, uint256) {
+        Match storage actualMatch = matchesById[_matchId];
+        uint256 playerPower = 0;
+        uint256 computerPower = 0;
+        for(uint i = 0; i < actualMatch.nftMatchCount; i++) {
+            playerPower += nftStatusById[actualMatch.playerNfts[i]].totalPower;
+            computerPower += nftStatusById[actualMatch.computerNfts[i]].totalPower;
+        }
+        return (playerPower, computerPower);
+    }
+
+    function _isOwnerOf(address _owner, uint256[] memory _ids) internal view returns (bool) {
         for(uint8 i = 0; i < _ids.length; i++) {
             if(vikingsContract.ownerOf(_ids[i]) != _owner){
                 return false;
@@ -377,8 +364,21 @@ contract NineWorldsMinigame is Ownable, VRFConsumerBase {
         emit RequestValues(requestId);
     }
 
-    function _randomIndex(uint256 _minNumber, uint256 _maxNumber, uint256 _randomness) internal view returns (uint256) {
-        return (_randomness % _maxNumber) + _minNumber;
+    function _generateNonRepeatedRandomIndex(
+        uint256 _minNumber, 
+        uint256 _maxNumber, 
+        uint256 _randomness, 
+        mapping(uint256 => bool) storage _repeatedNumbers
+    ) 
+    internal
+    returns (uint256) {
+        uint256 randomIndex = (_randomness % _maxNumber) + _minNumber;
+        while(_repeatedNumbers[randomIndex] == true) {
+            randomIndex = (randomIndex + 1) % _maxNumber;
+        }
+        _repeatedNumbers[randomIndex] = true;
+        
+        return randomIndex;
     }
 
     function fulfillRandomness(bytes32 requestId, uint256 randomness) internal override {
