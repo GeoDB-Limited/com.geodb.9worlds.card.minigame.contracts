@@ -42,7 +42,7 @@ contract("NineWorldsMulti", ([owner, user, user2, user3, ...accounts]) => {
     });
 
     describe("Nine worlds minigame tests", () => {
-        /*describe("Setters tests", () => {
+        describe("Setters tests", () => {
             it("Allow Set nft points for player with owner", async () =>{
                 const nftPointForPlayer = new BN('10');
                 await minigameContract.setNftPointForPlayerWinner(nftPointForPlayer, {from: owner});
@@ -157,8 +157,7 @@ contract("NineWorldsMulti", ([owner, user, user2, user3, ...accounts]) => {
                     errorMsgs.onlyOwner
                 );
             });
-        });   
-        */
+        });
         describe("Functional tests", () => {
             beforeEach(("Generate nfts"), async () => {
                 const nftIds = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15];
